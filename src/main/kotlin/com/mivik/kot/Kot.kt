@@ -197,4 +197,4 @@ object Kot {
 	}
 }
 
-inline fun kot(block: Kot.() -> Unit) = Kot.apply(block)
+inline fun kot(block: Kot.() -> Unit) = Kot.run(block)
