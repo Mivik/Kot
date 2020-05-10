@@ -2,12 +2,15 @@
 
 package com.mivik.kot
 
+import org.apache.commons.text.StringEscapeUtils
 import java.io.File
 
 private inline fun <T : Any> T?.nonnull(block: (T) -> Unit) {
 	this ?: return
 	block(this)
 }
+
+inline fun String.escape(): String = "\"${StringEscapeUtils.escapeJava(this)}\""
 
 class DocumentBuilder(val builder: StringBuilder) {
 	val endl: Unit
@@ -21,16 +24,17 @@ class DocumentBuilder(val builder: StringBuilder) {
 
 	inline operator fun String.minus(value: Any?) {
 		value ?: return
-		builder.append(this, '=', value, ';')
+		builder.append(
+			this, '=', when (value) {
+				null -> "null"
+				is String -> value.escape()
+				else -> value.toString()
+			}, ';'
+		)
 	}
 
-	inline operator fun String.div(value: Any?) {
-		value ?: return
-		builder.append(this, '=', value, ";\n")
-	}
-
-	inline fun append(name: Any?) {
-		builder.append(name)
+	inline fun append(value: Any?) {
+		builder.append(value)
 	}
 
 	fun append(vararg all: Any?) {
@@ -67,7 +71,7 @@ class Kot : Document() {
 
 		override fun build(builder: DocumentBuilder) {
 			builder.run {
-				append(name, " [")
+				append(name.escape(), " [")
 				"width" - width
 				"height" - height
 				"label" - label
@@ -109,14 +113,14 @@ class Kot : Document() {
 
 	class DirectedEdge(from: Node, to: Node) : Edge(from, to) {
 		override fun build(builder: DocumentBuilder) {
-			builder.append(from.name, "->", to.name)
+			builder.append(from.name.escape(), "->", to.name.escape())
 			super.build(builder)
 		}
 	}
 
 	class UndirectedEdge(from: Node, to: Node) : Edge(from, to) {
 		override fun build(builder: DocumentBuilder) {
-			builder.append(from.name, "--", to.name)
+			builder.append(from.name.escape(), "--", to.name.escape())
 			super.build(builder)
 		}
 	}
@@ -150,7 +154,7 @@ class Kot : Document() {
 				if (strict) append("strict ")
 				if (directed) append("di")
 				append("graph ")
-				name.nonnull { append(name, ' ') }
+				name.nonnull { append(it.escape(), ' ') }
 				line("{")
 				"size" - size
 				nodes.forEach { it.value.build(builder) }

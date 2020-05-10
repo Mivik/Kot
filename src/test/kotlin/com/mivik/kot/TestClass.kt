@@ -4,7 +4,7 @@ fun main() {
 	kot {
 		graph {
 			name = "test"
-			node("test") {
+			node("\"qwe") {
 			}
 			link("test", "dd") {
 				color = "red"
