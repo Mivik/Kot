@@ -9,8 +9,8 @@ fun main() {
 			link("test", "dd") {
 				color = "red"
 			}
+			val file = renderFile(Kot.OutputFormat.SVG)
+			Runtime.getRuntime().exec(arrayOf("gio", "open", file.absolutePath))
 		}
-		val file = renderFile(Kot.OutputFormat.SVG)
-		Runtime.getRuntime().exec(arrayOf("gio", "open", file.absolutePath))
 	}
 }

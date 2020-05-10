@@ -55,10 +55,8 @@ abstract class Document {
 		}.toString()
 }
 
-class Kot : Document() {
-	private val elements = mutableListOf<Document>()
-
-	class Node(val name: String) : Document() {
+object Kot {
+	class Node internal constructor(val name: String) : Document() {
 		var width: Float? = null
 		var height: Float? = null
 		var label: String? = null
@@ -87,7 +85,7 @@ class Kot : Document() {
 		}
 	}
 
-	abstract class Edge(
+	abstract class Edge internal constructor(
 		val from: Node,
 		val to: Node
 	) : Document() {
@@ -111,29 +109,31 @@ class Kot : Document() {
 		}
 	}
 
-	class DirectedEdge(from: Node, to: Node) : Edge(from, to) {
+	class DirectedEdge internal constructor(from: Node, to: Node) : Edge(from, to) {
 		override fun build(builder: DocumentBuilder) {
 			builder.append(from.name.escape(), "->", to.name.escape())
 			super.build(builder)
 		}
 	}
 
-	class UndirectedEdge(from: Node, to: Node) : Edge(from, to) {
+	class UndirectedEdge internal constructor(from: Node, to: Node) : Edge(from, to) {
 		override fun build(builder: DocumentBuilder) {
 			builder.append(from.name.escape(), "--", to.name.escape())
 			super.build(builder)
 		}
 	}
 
-	class GraphBuilder(
-		val directed: Boolean = false
+	class Graph internal constructor(
+		val directed: Boolean = false,
+		val subGraph: Boolean = false
 	) : Document() {
 		var name: String? = null
 		val size: String? = null
 		var strict: Boolean = false
 
-		private val nodes = mutableMapOf<String, Node>()
-		private val edges = mutableListOf<Edge>()
+		val nodes = mutableMapOf<String, Node>()
+		val edges = mutableListOf<Edge>()
+		val subGraphs = mutableListOf<Graph>()
 
 		fun node(name: String): Node = nodes.getOrPut(name) { Node(name) }
 		fun node(name: String, block: Node.() -> Unit) = node(name).apply(block)
@@ -149,46 +149,52 @@ class Kot : Document() {
 		infix fun Node.to(other: Node) = link(this, other)
 		infix fun String.to(other: String) = link(node(this), node(other))
 
+		fun subgraph(block: Graph.() -> Unit): Graph =
+			Graph(directed).apply(block).also { subGraphs.add(it) }
+
 		override fun build(builder: DocumentBuilder) {
 			builder.run {
 				if (strict) append("strict ")
 				if (directed) append("di")
+				if (subGraph) append("sub")
 				append("graph ")
 				name.nonnull { append(it.escape(), ' ') }
 				line("{")
 				"size" - size
 				nodes.forEach { it.value.build(builder) }
 				edges.forEach { it.build(builder) }
+				subGraphs.forEach {
+					append("sub")
+				}
 				line("}")
 			}
 		}
+
+		fun renderFile(
+			format: OutputFormat
+		): File =
+			File.createTempFile("kot", format.suffix).also { it.writeBytes(render(format)) }
+
+		fun render(
+			format: OutputFormat
+		): ByteArray {
+			val pro = Runtime.getRuntime().exec(arrayOf("dot", "-T${format.suffix}"))
+			val output = pro.outputStream
+			output.write(toString().toByteArray())
+			output.close()
+			return pro.inputStream.readBytes()
+		}
 	}
 
-	fun graph(directed: Boolean = true, block: GraphBuilder.() -> Unit): GraphBuilder =
-		GraphBuilder(directed).apply(block).also { elements.add(it) }
+	fun graph(block: Graph.() -> Unit): Graph =
+		Graph(false).apply(block)
+
+	fun digraph(block: Graph.() -> Unit): Graph =
+		Graph(true).apply(block)
 
 	enum class OutputFormat(val suffix: String) {
 		SVG("svg"), PNG("png"), JPG("jpg")
 	}
-
-	fun renderFile(
-		format: OutputFormat
-	): File =
-		File.createTempFile("kot", format.suffix).also { it.writeBytes(render(format)) }
-
-	fun render(
-		format: OutputFormat
-	): ByteArray {
-		val pro = Runtime.getRuntime().exec(arrayOf("dot", "-T${format.suffix}"))
-		val output = pro.outputStream
-		output.write(toString().toByteArray())
-		output.close()
-		return pro.inputStream.readBytes()
-	}
-
-	override fun build(builder: DocumentBuilder) {
-		elements.forEach { it.build(builder) }
-	}
 }
 
-inline fun kot(block: Kot.() -> Unit) = Kot().apply(block)
+inline fun kot(block: Kot.() -> Unit) = Kot.apply(block)
